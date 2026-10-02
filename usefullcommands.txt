@@ -99,3 +99,6 @@ tail -f mount_watch.log
 launchctl kickstart -k gui/$(id -u)/com.clipstage.mountwatch
 sleep 15
 tail -n 12 mount_watch.log
+
+
+chmod 600 clipstage_env.sh .env.
