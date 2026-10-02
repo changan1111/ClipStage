@@ -79,9 +79,12 @@ clipstage_require_key() {
 mount_volumes() {
     if [ -f "$CLIPSTAGE_DIR/mount_volumes.sh" ]; then
         bash "$CLIPSTAGE_DIR/mount_volumes.sh"
+        local rc=$?
         sleep 2
+        return $rc
     else
         echo "(no mount_volumes.sh - assuming the NAS volumes are already mounted)"
+        return 0
     fi
 }
 
