@@ -163,9 +163,14 @@ large it will take several nights at 5,000 per night - or run it once by hand:
 Your current search collection is called `clips` and notes live inside it. v5.0 uses `clips_v2` and
 keeps notes in `clipstage.db`. The migration copies everything and **leaves `clips` untouched**:
 
+Run these commands from the NEW project folder. Keep `clipstage_env.sh` and `.env` there. The
+migration must run with the environment set up by `clipstage_env.sh`; the command below sources it
+before running the selected Python interpreter. Typesense must be running with the key in `.env`;
+`start_clipstage.sh` starts Typesense as well as the API.
+
 ```sh
-# In the NEW folder, with .env in place and Typesense running (start_clipstage.sh starts it):
-./clipstage_run.sh migrate_to_v2.py             # builds clips_v2, copies notes/use counts into clipstage.db
+# In the NEW folder, with clipstage_env.sh and .env in place and Typesense running:
+bash -c '. ./clipstage_env.sh && "$PYTHON" migrate_to_v2.py'  # builds clips_v2 and copies notes/use counts into clipstage.db
 ./clipstage_run.sh indexer.py --prune           # picks up anything that changed meanwhile
 ```
 
@@ -242,9 +247,11 @@ regenerated.
 
 - **Start the app with `./start_clipstage.sh`.** Only the shell scripts read `.env`. Starting
   `uvicorn api:app` by hand gives the API empty Supabase/Typesense settings.
-- **Run the Python tools with `./clipstage_run.sh`** (`./clipstage_run.sh indexer.py --dry`,
-  `./clipstage_run.sh migrate_to_v2.py`, ...). Running `python3 indexer.py` directly fails with
-  `TYPESENSE_KEY environment variable is required`.
+- **Run Python tools with their environment loaded.** `./clipstage_run.sh` sources the adjacent
+  `clipstage_env.sh` for tools such as `indexer.py`; for the S11/S12 migration, use the explicit
+  `bash -c '. ./clipstage_env.sh && "$PYTHON" migrate_to_v2.py'` command in Section 3. Keep
+  `clipstage_env.sh` and `.env` beside the scripts. Running `python3 indexer.py` directly fails
+  with `TYPESENSE_KEY environment variable is required`.
 - **Use one address in the browser** (`http://127.0.0.1:8000` *or* `localhost`, not both): each has its
   own saved session.
 - **Never paste `.env` contents, passwords or tokens into chats or screenshots.** If you did,
@@ -287,7 +294,7 @@ Expect `HTTP/2 200` and one row such as `[{"role":"admin","valid_through":"2026-
 | Symptom | Cause | Fix |
 | --- | --- | --- |
 | `/search` returns 503 (`Search unavailable: ...`) | Typesense down, key mismatch, or the `clips_v2` collection is missing | Run the checks below. |
-| `/collections` lists only `clips`, not `clips_v2` | Upgraded from an older install: v5.0 searches `clips_v2` | `./clipstage_run.sh migrate_to_v2.py` (copies everything, leaves `clips` untouched), then `./manual_index.sh`. Make sure `.env` has no `CLIPSTAGE_COLLECTION=clips`; it must be `clips_v2` or absent. |
+| `/collections` lists only `clips`, not `clips_v2` | Upgraded from an older install: v5.0 searches `clips_v2` | From the project folder, with `clipstage_env.sh` and `.env` present and Typesense running, run `bash -c '. ./clipstage_env.sh && "$PYTHON" migrate_to_v2.py'` (migration leaves `clips` untouched), then `./manual_index.sh`. Make sure `.env` has no `CLIPSTAGE_COLLECTION=clips`; it must be `clips_v2` or absent. |
 | `collection 'clips_v2' not found` in the log | Fresh index not built yet | `./manual_index.sh` (volumes must be mounted). |
 | `/health` ok but search finds nothing | Typesense down or key mismatch | See checks below. |
 | Notes saved but not searchable for a while | Typesense was briefly down when saving | The next index run re-syncs. |

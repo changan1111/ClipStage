@@ -1,0 +1,74 @@
+#Installation:
+
+py -m pip install -r requirements.txt
+
+
+
+
+#Supabase side verification:
+
+curl -i "https://neemkbqcwjwlxtuetqvo.supabase.co/auth/v1/health" \
+  -H "apikey: YOUR_ANON_KEY"
+
+
+# 1. Does login itself work? (expect HTTP 200 and an access_token)
+curl -s -i -X POST "https://neemkbqcwjwlxtuetqvo.supabase.co/auth/v1/token?grant_type=password" \
+  -H "apikey: YOUR_ANON_KEY" -H "Content-Type: application/json" \
+  -d '{"email":"you@example.com","password":"yourpassword"}'
+
+# 2. Then, with the access_token from step 1, can that user read the profile?
+curl -s -i "https://neemkbqcwjwlxtuetqvo.supabase.co/rest/v1/clipstage_profiles?select=role,valid_through" \
+  -H "apikey: YOUR_ANON_KEY" -H "Authorization: Bearer ACCESS_TOKEN"
+
+
+
+
+
+cd ~/Documents/ClipStage
+TOKEN=$(curl -s -X POST "https://neemkbqcwjwlxtuetqvo.supabase.co/auth/v1/token?grant_type=password" \
+  -H "apikey: YOUR_ANON_KEY" -H "Content-Type: application/json" \
+  -d '{"email":"you@example.com","password":"YOUR_PASSWORD"}' \
+  | python3 -c "import sys,json;print(json.load(sys.stdin)['access_token'])")
+
+curl -s -i "https://neemkbqcwjwlxtuetqvo.supabase.co/rest/v1/clipstage_profiles?select=role,valid_through" \
+  -H "apikey: YOUR_ANON_KEY" -H "Authorization: Bearer $TOKEN"
+
+
+#if above two are workign fine but still unable to login use this;
+
+
+drop policy if exists "clipstage_profiles_admin_manage" on public.clipstage_profiles;
+
+
+select policyname, cmd, qual
+from pg_policies
+where tablename = 'clipstage_profiles';
+
+
+cd ~/Documents/ClipStage
+# stop the hand-typed uvicorn tab (Ctrl+C), then:
+./start_clipstage.sh
+#(or)
+bash start_clipstage.sh
+
+
+
+curl -s localhost:8108/health
+KEY=$(grep '^TYPESENSE_KEY=' .env | cut -d= -f2-)
+curl -s -i "localhost:8108/collections" -H "X-TYPESENSE-API-KEY: $KEY"
+
+
+#Bash cannot run a Python script. Use the environment-loading wrapper:
+cd ~/Documents/ClipStage
+bash -c '. ./clipstage_env.sh && "$PYTHON" migrate_to_v2.py'
+
+#(or)
+bash clipstage_run.sh migrate_to_v2.py
+
+
+cd ~/Documents/ClipStage
+bash nightly_index.sh
+
+
+cd ~/Documents/ClipStage
+bash manual_index.sh
