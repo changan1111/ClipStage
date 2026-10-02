@@ -78,3 +78,18 @@ Duplicate:
 
 ./clipstage_run.sh fix_volume_case.py
 ./clipstage_run.sh fix_volume_case.py --apply
+
+
+
+bash install_mountwatch.sh
+launchctl print gui/$(id -u)/com.clipstage.mountwatch | grep -i interval
+
+
+
+date
+diskutil unmount "/Volumes/EDIT2"
+
+ls /Volumes
+
+
+tail -f mount_watch.log
