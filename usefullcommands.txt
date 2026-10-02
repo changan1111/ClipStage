@@ -72,3 +72,9 @@ bash nightly_index.sh
 
 cd ~/Documents/ClipStage
 bash manual_index.sh
+
+
+Duplicate:
+
+./clipstage_run.sh fix_volume_case.py
+./clipstage_run.sh fix_volume_case.py --apply
