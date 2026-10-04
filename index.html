@@ -738,6 +738,9 @@ mark {
   background: rgba(0,150,80,0.06);
   border-left: 3px solid var(--green);
 }
+.staging-card.sel { background: var(--accent-dim); box-shadow: inset 3px 0 0 var(--accent); }
+#stgSelBar { display:none; align-items:center; gap:10px; padding:4px 10px; font-size:10px; color:var(--muted); border-bottom:1px solid rgba(0,0,0,0.08); }
+#stgSelBar a { color:var(--accent); cursor:pointer; text-decoration:underline; }
 .stg-thumb {
   width: 56px; height: 32px; flex-shrink: 0;
   background: var(--surface2);
@@ -1239,6 +1242,7 @@ kbd {
       <div class="staging-sub" id="stagingEditorName">Select your name to begin</div>
     </div>
     <button id="openFinderBtn" onclick="openFinder()">📂 Open in Finder</button>
+    <div id="stgSelBar"><a onclick="stgSelectAll()">Select all</a><a onclick="stgClearSel()">Clear</a><span id="stgSelCount">Click cards to select several, then drag</span></div>
     <div class="staging-list" id="stagingList">
       <div class="staging-empty">Stage clips here, then drag from<br><strong>/Volumes/staging/[name]/</strong><br>into FCP → Leave in Place</div>
     </div>
@@ -2099,6 +2103,8 @@ function renderStaging(clips) {
   }
   // Sort newest first — last staged clip on top
   const sorted = [...clips].sort((a,b) => (b.mtime||0) - (a.mtime||0));
+  const _names = new Set(sorted.map(c => c.name));
+  stgSel.forEach(n => { if (!_names.has(n)) stgSel.delete(n); });
   list.innerHTML = sorted.map((c, i) => {
     const uid   = c.uid || '';
     const img   = uid
@@ -2111,7 +2117,7 @@ function renderStaging(clips) {
     const newBadge = i === 0
       ? `<span style="background:var(--green);color:#000;font-size:8px;padding:1px 4px;border-radius:3px;font-weight:700">NEW</span>`
       : '';
-    return `<div class="staging-card">
+    return `<div class="staging-card${stgSel.has(c.name) ? ' sel' : ''}" draggable="true" data-name="${escapeHtml(c.name)}" style="cursor:grab">
       <div class="stg-thumb">${img}<span>${uid ? '' : '🎬'}</span></div>
       <div class="stg-info">
         <div class="stg-name">${escapeHtml(c.name)}</div>
@@ -2123,7 +2129,48 @@ function renderStaging(clips) {
       </div>
     </div>`;
   }).join('');
+  stgUpdateCount();
 }
+
+// ── DRAG TO FCP (works only inside the ClipStage Electron app) ─────────────
+const stgSel = new Set();          // selected staged filenames
+let stgLastClicked = null;
+if (window.clipstageNative) document.getElementById('stgSelBar').style.display = 'flex';
+
+function stgCards() { return [...document.querySelectorAll('#stagingList .staging-card')]; }
+function stgUpdateCount() {
+  const el = document.getElementById('stgSelCount');
+  if (el) el.textContent = stgSel.size ? `${stgSel.size} selected - drag any one` : 'Click cards to select several, then drag';
+}
+function stgPaint() { stgCards().forEach(c => c.classList.toggle('sel', stgSel.has(c.dataset.name))); stgUpdateCount(); }
+function stgSelectAll() { stgCards().forEach(c => stgSel.add(c.dataset.name)); stgPaint(); }
+function stgClearSel() { stgSel.clear(); stgLastClicked = null; stgPaint(); }
+
+document.getElementById('stagingList').addEventListener('click', (ev) => {
+  if (!window.clipstageNative) return;
+  const card = ev.target.closest('.staging-card');
+  if (!card) return;
+  const name = card.dataset.name;
+  if (ev.shiftKey && stgLastClicked) {                      // range select
+    const cards = stgCards().map(c => c.dataset.name);
+    const a = cards.indexOf(stgLastClicked), b = cards.indexOf(name);
+    if (a > -1 && b > -1) cards.slice(Math.min(a, b), Math.max(a, b) + 1).forEach(n => stgSel.add(n));
+  } else {
+    stgSel.has(name) ? stgSel.delete(name) : stgSel.add(name);
+    stgLastClicked = name;
+  }
+  stgPaint();
+});
+
+document.getElementById('stagingList').addEventListener('dragstart', (ev) => {
+  const card = ev.target.closest && ev.target.closest('.staging-card');
+  if (!card || !window.clipstageNative || !currentEditor) return;   // normal browser: do nothing
+  ev.preventDefault();                                              // cancel the browser drag
+  const name = card.dataset.name;
+  // dragging a selected card drags the whole selection; otherwise just that card
+  const names = (stgSel.has(name) && stgSel.size > 1) ? [...stgSel] : [name];
+  window.clipstageNative.startDrag(currentEditor, names);
+});
 
 async function clearStaging() {
   if (!currentEditor) { showToast('Select your name first', 'error'); flashEditorSelect(); return; }

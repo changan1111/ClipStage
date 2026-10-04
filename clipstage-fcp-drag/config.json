@@ -1,0 +1,4 @@
+{
+  "serverUrl": "http://MIDDLE-MACHINE-IP:8000",
+  "stagingMount": "/Volumes/staging"
+}
